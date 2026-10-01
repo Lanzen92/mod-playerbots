@@ -462,6 +462,8 @@ bool PlayerbotAIConfig::Initialize()
     nonCombatStrategies = sConfigMgr->GetOption<std::string>("AiPlayerbot.NonCombatStrategies", "");
     applyInstanceStrategies = sConfigMgr->GetOption<bool>("AiPlayerbot.ApplyInstanceStrategies", true);
 
+    progressiveTalentSpecs = sConfigMgr->GetOption<bool>("AiPlayerbot.ProgressiveTalentSpecs", false);
+
     commandPrefix = sConfigMgr->GetOption<std::string>("AiPlayerbot.CommandPrefix", "");
     commandSeparator = sConfigMgr->GetOption<std::string>("AiPlayerbot.CommandSeparator", "\\\\");
 

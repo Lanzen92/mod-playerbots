@@ -282,6 +282,7 @@ public:
     // std::string premadeLevelSpec[MAX_CLASSES][10][91]; //lvl 10 - 100
     // ClassSpecs classSpecs[MAX_CLASSES];
 
+    bool progressiveTalentSpecs;
     std::string premadeSpecName[MAX_CLASSES][MAX_SPECNO];
     std::string premadeSpecGlyph[MAX_CLASSES][MAX_SPECNO];
     std::vector<uint32> parsedSpecGlyph[MAX_CLASSES][MAX_SPECNO];
