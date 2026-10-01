@@ -290,8 +290,8 @@ public:
     std::string premadeHunterPetLink[3][21];
     std::vector<std::vector<uint32>> parsedSpecLinkOrder[MAX_CLASSES][MAX_SPECNO][MAX_LEVEL];
     std::vector<std::vector<uint32>> parsedHunterPetLinkOrder[3][21];
-    uint32 randomClassSpecProb[MAX_CLASSES][MAX_SPECNO];
-    uint32 randomClassSpecIndex[MAX_CLASSES][MAX_SPECNO];
+    uint32 randomClassSpecProb[MAX_CLASSES][MAX_SPECNO][MAX_LEVEL];
+    uint32 randomClassSpecIndex[MAX_CLASSES][MAX_SPECNO][MAX_LEVEL];
 
     std::string commandPrefix, commandSeparator;
     std::string randomBotAccountPrefix;

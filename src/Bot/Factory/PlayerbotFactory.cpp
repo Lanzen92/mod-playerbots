@@ -1672,6 +1672,21 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
     uint8 cls = bot->getClass();
     std::map<uint8, uint32> tabs = AiFactory::GetPlayerSpecTabs(bot);
     uint32 total_tabs = tabs[0] + tabs[1] + tabs[2];
+    uint32 currentLevel = bot->GetLevel();
+
+    // Default to 80 specprobs
+    int targetSpecLevel = 80;
+
+    if (sPlayerbotAIConfig.progressiveTalentSpecs)
+    {
+        //Select .60 bracket
+        if (currentLevel <= 60) targetSpecLevel = 60;
+        //Select .70 bracket
+        else if (currentLevel <= 70) targetSpecLevel = 70;
+        //Select .80 bracket
+        else targetSpecLevel = 80;
+    }
+
     if (increment && total_tabs != 0)
     {
         /// @todo: match current talent with template
@@ -1682,8 +1697,8 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
             bool isCat = !bot->HasAura(SPELL_DRUID_THICK_HIDE);
             if (!isCat && bot->GetLevel() == 20)
             {
-                uint32 bearP = sPlayerbotAIConfig.randomClassSpecProb[cls][1];
-                uint32 catP = sPlayerbotAIConfig.randomClassSpecProb[cls][3];
+                uint32 bearP = sPlayerbotAIConfig.randomClassSpecProb[cls][1][targetSpecLevel];
+                uint32 catP = sPlayerbotAIConfig.randomClassSpecProb[cls][3][targetSpecLevel];
                 if (urand(1, bearP + catP) <= catP)
                     isCat = true;
             }
@@ -1698,14 +1713,14 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
         uint32 pointSum = 0;
         for (int i = 0; i < MAX_SPECNO; i++)
         {
-            pointSum += sPlayerbotAIConfig.randomClassSpecProb[cls][i];
+            pointSum += sPlayerbotAIConfig.randomClassSpecProb[cls][i][targetSpecLevel];
         }
         uint32 point = urand(1, pointSum);
         uint32 currentP = 0;
         int i;
         for (i = 0; i < MAX_SPECNO; i++)
         {
-            currentP += sPlayerbotAIConfig.randomClassSpecProb[cls][i];
+            currentP += sPlayerbotAIConfig.randomClassSpecProb[cls][i][targetSpecLevel];
             if (point <= currentP)
             {
                 specTab = i;
@@ -1741,7 +1756,7 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
     }
 
     bot->SendTalentsInfoData(false);
-    return sPlayerbotAIConfig.randomClassSpecIndex[cls][specTab];
+    return sPlayerbotAIConfig.randomClassSpecIndex[cls][specTab][targetSpecLevel];
 }
 
 void PlayerbotFactory::InitTalentsBySpecNo(Player* bot, int specNo, bool reset)
@@ -3663,8 +3678,6 @@ void PlayerbotFactory::InitTalents(uint32 specNo)
     }
 }
 
-//if blizzlikeExpansionSpecsEnabled use first available levelbracket.
-//if !blizzlikeExpansionSpecsEnabled use level 80 bracket.
 void PlayerbotFactory::InitTalentsByTemplate(uint32 specTab)
 {
     uint32 cls = bot->getClass();
@@ -3684,7 +3697,7 @@ void PlayerbotFactory::InitTalentsByTemplate(uint32 specTab)
         else targetSpecLevel = 80;
     }
 
-    uint32 specIndex = sPlayerbotAIConfig.randomClassSpecIndex[cls][specTab];
+    uint32 specIndex = sPlayerbotAIConfig.randomClassSpecIndex[cls][specTab][targetSpecLevel];
     uint32 classMask = bot->getClassMask();
     std::unordered_map<uint32, std::vector<TalentEntry const*>> spells_row;
 
