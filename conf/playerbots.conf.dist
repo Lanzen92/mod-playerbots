@@ -1188,7 +1188,7 @@ AiPlayerbot.PreferClassArmorType = 0
 AiPlayerbot.PreferredSpecWeapons = 0
 
 # When enabled, bots prefer expansion-appropriate weapons.
-# Examples: Rogues will prefer Daggers / Swords / Fist when under level 71. And start using Axes in WotLK era.
+# Examples: Rogues will prefer Daggers / Swords / Fist when under level 71. And from 71 also prefer axes.
 # Default: 0 (disabled)
 AiPlayerbot.PreferExpansionWeaponSpecializations = 0
 
