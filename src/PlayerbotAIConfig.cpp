@@ -174,6 +174,7 @@ bool PlayerbotAIConfig::Initialize()
     randomGearScoreLimit = sConfigMgr->GetOption<int32>("AiPlayerbot.RandomGearScoreLimit", 0);
     preferClassArmorType  = sConfigMgr->GetOption<bool>("AiPlayerbot.PreferClassArmorType", false);
     preferredSpecWeapons  = sConfigMgr->GetOption<bool>("AiPlayerbot.PreferredSpecWeapons", false);
+    preferExpansionWeaponSpecializations  = sConfigMgr->GetOption<bool>("AiPlayerbot.PreferExpansionWeaponSpecializations", false);
 
     randomBotMinLevelChance = sConfigMgr->GetOption<float>("AiPlayerbot.RandomBotMinLevelChance", 0.1f);
     randomBotMaxLevelChance = sConfigMgr->GetOption<float>("AiPlayerbot.RandomBotMaxLevelChance", 0.1f);
@@ -463,6 +464,7 @@ bool PlayerbotAIConfig::Initialize()
     applyInstanceStrategies = sConfigMgr->GetOption<bool>("AiPlayerbot.ApplyInstanceStrategies", true);
 
     progressiveTalentSpecs = sConfigMgr->GetOption<bool>("AiPlayerbot.ProgressiveTalentSpecs", false);
+    progressiveLevelingTalentSpecs = sConfigMgr->GetOption<bool>("AiPlayerbot.ProgressiveLevelingTalentSpecs", false);
 
     commandPrefix = sConfigMgr->GetOption<std::string>("AiPlayerbot.CommandPrefix", "");
     commandSeparator = sConfigMgr->GetOption<std::string>("AiPlayerbot.CommandSeparator", "\\\\");
@@ -483,122 +485,238 @@ bool PlayerbotAIConfig::Initialize()
 
     LOG_INFO("server.loading", "Loading TalentSpecs...");
 
-    //Load both premade specs and specprobs at the same time.
+    LOG_DEBUG("PlayerbotsTalentRevampDebug", "===================== PREMADE SPECS AND PROBABILITY =====================");
+    LOG_DEBUG("PlayerbotsTalentRevampDebug", "sPlayerbotAIConfig.progressiveTalentSpecs = {}", sPlayerbotAIConfig.progressiveTalentSpecs);
+    LOG_DEBUG("PlayerbotsTalentRevampDebug", "sPlayerbotAIConfig.progressiveLevelingTalentSpecs = {}", sPlayerbotAIConfig.progressiveLevelingTalentSpecs);
+
     for (uint32 cls = 1; cls < MAX_CLASSES; ++cls)
-    {
-        for (uint32 spec = 0; spec < MAX_SPECNO; ++spec)
-        {
-            std::ostringstream osName, osGlyph;
-            osName << "AiPlayerbot.PremadeSpecName." << cls << "." << spec;
-            osGlyph << "AiPlayerbot.PremadeSpecGlyph." << cls << "." << spec;
+     {
+         if (cls == 10)
+         {
+             continue;
+         }
+         for (uint32 spec = 0; spec < MAX_SPECNO; ++spec)
+         {
+             std::ostringstream os;
+             os << "AiPlayerbot.PremadeSpecName." << cls << "." << spec;
+             premadeSpecName[cls][spec] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
 
-            premadeSpecName[cls][spec] = sConfigMgr->GetOption<std::string>(osName.str().c_str(), "", false);
-            premadeSpecGlyph[cls][spec] = sConfigMgr->GetOption<std::string>(osGlyph.str().c_str(), "", false);
+             // If no more named specs, early return.
+             if (premadeSpecName[cls][spec].empty())
+             {
+                 continue;
+             }
 
-            uint32 defProb = (spec <= 1) ? 33 : (spec == 2 ? 34 : 0);
-            uint32 defIndex = spec;
+             os.str("");
+             os.clear();
+             os << "AiPlayerbot.PremadeSpecGlyph." << cls << "." << spec;
+             premadeSpecGlyph[cls][spec] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
+             std::vector<std::string> splitSpecGlyph = split(premadeSpecGlyph[cls][spec], ',');
+             for (std::string& split : splitSpecGlyph)
+             {
+                 if (split.size() != 0)
+                 {
+                     parsedSpecGlyph[cls][spec].push_back(atoi(split.c_str()));
+                 }
+             }
 
-            std::ostringstream osBaseProb, osBaseIdx, osBaseLink;
-            osBaseProb << "AiPlayerbot.RandomClassSpecProb." << cls << "." << spec;
-            osBaseIdx << "AiPlayerbot.RandomClassSpecIndex." << cls << "." << spec;
-            osBaseLink << "AiPlayerbot.PremadeSpecLink." << cls << "." << spec;
+             // 1. Read the base spec probability & index right here in the spec loop
+             uint32 def;
+             if (spec <= 1)
+                 def = 33;
+             else if (spec == 2)
+                 def = 34;
+             else
+                 def = 0;
 
-            uint32 currentProb = sConfigMgr->GetOption<uint32>(osBaseProb.str().c_str(), defProb, false);
-            uint32 currentIndex = sConfigMgr->GetOption<uint32>(osBaseIdx.str().c_str(), defIndex, false);
-            std::string currentLink = sConfigMgr->GetOption<std::string>(osBaseLink.str().c_str(), "", false);
+             std::ostringstream osProbBase, osIdxBase;
+             osProbBase << "AiPlayerbot.RandomClassSpecProb." << cls << "." << spec;
+             std::string probBaseStr = sConfigMgr->GetOption<std::string>(osProbBase.str().c_str(), "", false);
+             uint32 baseProb = probBaseStr.empty() ? def : std::stoul(probBaseStr);
 
-            for (uint32 level = 1; level < MAX_LEVEL; ++level)
-            {
-                std::ostringstream osProb, osIdx, osLink;
-                osProb << "AiPlayerbot.RandomClassSpecProb." << cls << "." << spec << "." << level;
-                osIdx << "AiPlayerbot.RandomClassSpecIndex." << cls << "." << spec << "." << level;
-                osLink << "AiPlayerbot.PremadeSpecLink." << cls << "." << spec << "." << level;
+             osIdxBase << "AiPlayerbot.RandomClassSpecIndex." << cls << "." << spec;
+             std::string idxBaseStr = sConfigMgr->GetOption<std::string>(osIdxBase.str().c_str(), "", false);
+             uint32 baseIndex = idxBaseStr.empty() ? spec : std::stoul(idxBaseStr);
 
-                uint32 oldProb = currentProb;
-                uint32 oldIndex = currentIndex;
-                std::string oldLink = currentLink;
+             // Set initial/base values
+             uint32 currentProb = baseProb;
+             uint32 currentIndex = baseIndex;
+             std::string currentLink = "";
 
-                currentProb = sConfigMgr->GetOption<uint32>(osProb.str().c_str(), currentProb, false);
-                currentIndex = sConfigMgr->GetOption<uint32>(osIdx.str().c_str(), currentIndex, false);
-                currentLink = sConfigMgr->GetOption<std::string>(osLink.str().c_str(), currentLink, false);
+             // 2. Loop through levels, cascading values forward if level-specific overrides are missing
+             for (uint32 level = 0; level < MAX_LEVEL; ++level)
+             {
+                 std::ostringstream osLink, osProb, osIdx;
 
-                randomClassSpecProb[cls][spec][level] = currentProb;
-                randomClassSpecIndex[cls][spec][level] = currentIndex;
-                premadeSpecLink[cls][spec][level] = currentLink;
+                 osLink << "AiPlayerbot.PremadeSpecLink." << cls << "." << spec << "." << level;
+                 std::string explicitLink = sConfigMgr->GetOption<std::string>(osLink.str().c_str(), "", false);
+                 if (!explicitLink.empty())
+                 {
+                     currentLink = explicitLink;
+                 }
+                 premadeSpecLink[cls][spec][level] = currentLink;
+                 parsedSpecLinkOrder[cls][spec][level] = ParseTempTalentsOrder(cls, currentLink);
 
-                parsedSpecLinkOrder[cls][spec][level] = ParseTempTalentsOrder(cls, currentLink);
+                 osProb << "AiPlayerbot.RandomClassSpecProb." << cls << "." << spec << "." << level;
+                 std::string probStr = sConfigMgr->GetOption<std::string>(osProb.str().c_str(), "", false);
+                 if (!probStr.empty())
+                 {
+                     currentProb = std::stoul(probStr);
+                 }
+                 randomClassSpecProb[cls][spec][level] = currentProb;
 
-                if (level == 1 || currentProb != oldProb || currentIndex != oldIndex || currentLink != oldLink)
-                {
-                    LOG_INFO("playerbots", "Bot Config - Class: {}, Spec: {} ({}) | Level {}+ -> Prob: {}%, Link: {}",
-                             cls, spec, premadeSpecName[cls][spec], level, currentProb, currentLink);
-                }
-            }
-        }
+                 osIdx << "AiPlayerbot.RandomClassSpecIndex." << cls << "." << spec << "." << level;
+                 std::string idxStr = sConfigMgr->GetOption<std::string>(osIdx.str().c_str(), "", false);
+                 if (!idxStr.empty())
+                 {
+                     currentIndex = std::stoul(idxStr);
+                 }
+                 randomClassSpecIndex[cls][spec] = currentIndex; // Or your level-indexed array if index is level-specific too
+
+                 if (!probStr.empty() || level == 1)
+                 {
+                     LOG_DEBUG("PlayerbotsTalentRevampDebug", "TALENTREVAMP: Bot Config - Class: {}, Spec: {} ({}) | Level {} -> Prob: {}%, Link: {}",
+                              cls, spec, premadeSpecName[cls][spec], level, currentProb, currentLink);
+                 }
+             }
+         }
+
+         for (uint32 spec = 0; spec < 3; ++spec)
+         {
+             for (uint32 points = 0; points < 21; ++points)
+             {
+                 std::ostringstream os;
+                 os << "AiPlayerbot.PremadeHunterPetLink." << spec << "." << points;
+                 premadeHunterPetLink[spec][points] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
+                 parsedHunterPetLinkOrder[spec][points] = ParseTempPetTalentsOrder(spec, premadeHunterPetLink[spec][points]);
+             }
+         }
     }
+    LOG_DEBUG("PlayerbotsTalentRevampDebug", "===================== PREMADE SPECS AND PROBABILITY =====================");
 
-
-
+    //Load both premade specs and specprobs at the same time.
     // for (uint32 cls = 1; cls < MAX_CLASSES; ++cls)
     // {
-    //     if (cls == 10)
+    //     for (uint32 spec = 0; spec < MAX_SPECNO; ++spec)
     //     {
-    //         continue;
+    //         std::ostringstream osName, osGlyph;
+    //         osName << "AiPlayerbot.PremadeSpecName." << cls << "." << spec;
+    //         osGlyph << "AiPlayerbot.PremadeSpecGlyph." << cls << "." << spec;
+    //
+    //         premadeSpecName[cls][spec] = sConfigMgr->GetOption<std::string>(osName.str().c_str(), "", false);
+    //         premadeSpecGlyph[cls][spec] = sConfigMgr->GetOption<std::string>(osGlyph.str().c_str(), "", false);
+    //
+    //         uint32 defProb = (spec <= 1) ? 33 : (spec == 2 ? 34 : 0);
+    //         uint32 defIndex = spec;
+    //
+    //         std::ostringstream osBaseProb, osBaseIdx, osBaseLink;
+    //         osBaseProb << "AiPlayerbot.RandomClassSpecProb." << cls << "." << spec;
+    //         osBaseIdx << "AiPlayerbot.RandomClassSpecIndex." << cls << "." << spec;
+    //         osBaseLink << "AiPlayerbot.PremadeSpecLink." << cls << "." << spec;
+    //
+    //         uint32 currentProb = sConfigMgr->GetOption<uint32>(osBaseProb.str().c_str(), defProb, true);
+    //         uint32 currentIndex = sConfigMgr->GetOption<uint32>(osBaseIdx.str().c_str(), defIndex, true);
+    //         std::string currentLink = sConfigMgr->GetOption<std::string>(osBaseLink.str().c_str(), "", true);
+    //
+    //         bool hasExplicitProb[MAX_CLASSES][MAX_SPECNO][MAX_LEVEL] = {{{false}}};
+    //
+    //         for (uint32 level = 1; level < MAX_LEVEL; ++level)
+    //         {
+    //             // 1. Only check the config file if this specific level is an actual defined milestone/bracket
+    //             // (e.g., level 59, 60, 69, 70, 79, 80, or level 1 as a baseline)
+    //             std::ostringstream osProb, osIdx, osLink;
+    //             osProb << "AiPlayerbot.RandomClassSpecProb." << cls << "." << spec << "." << level;
+    //             osIdx << "AiPlayerbot.RandomClassSpecIndex." << cls << "." << spec << "." << level;
+    //             osLink << "AiPlayerbot.PremadeSpecLink." << cls << "." << spec << "." << level;
+    //
+    //             // Check if an explicit config option exists for this exact level before fetching
+    //             // (Or use a helper check to only target your milestone brackets)
+    //             if (level == 1 || level == 59 || level == 60 || level == 69 || level == 70 || level == 79 || level == 80)
+    //             {
+    //                 // These are your valid configured tiers, safe to load strictly or with defaults
+    //                 currentProb = sConfigMgr->GetOption<uint32>(osProb.str().c_str(), currentProb);
+    //                 currentIndex = sConfigMgr->GetOption<uint32>(osIdx.str().c_str(), currentIndex);
+    //                 currentLink = sConfigMgr->GetOption<std::string>(osLink.str().c_str(), currentLink);
+    //             }
+    //
+    //             randomClassSpecProb[cls][spec][level] = currentProb;
+    //             randomClassSpecIndex[cls][spec] = currentIndex;
+    //             premadeSpecLink[cls][spec][level] = currentLink;
+    //             parsedSpecLinkOrder[cls][spec][level] = ParseTempTalentsOrder(cls, currentLink);
+    //
+    //             if (hasExplicitProb[cls][spec][level] || level == 1)
+    //             {
+    //                 LOG_DEBUG("PlayerbotsTalentRevampDebug", "TALENTREVAMP: Bot Config - Class: {}, Spec: {} ({}) | Level {} -> Prob: {}%, Link: {}",
+    //                          cls, spec, premadeSpecName[cls][spec], level, currentProb, currentLink);
+    //             }
+    //         }
     //     }
-        // for (uint32 spec = 0; spec < MAX_SPECNO; ++spec)
-        // {
-        //     std::ostringstream os;
-        //     os << "AiPlayerbot.PremadeSpecName." << cls << "." << spec;
-        //     premadeSpecName[cls][spec] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
-        //     os.str("");
-        //     os.clear();
-        //     os << "AiPlayerbot.PremadeSpecGlyph." << cls << "." << spec;
-        //     premadeSpecGlyph[cls][spec] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
-        //     std::vector<std::string> splitSpecGlyph = split(premadeSpecGlyph[cls][spec], ',');
-        //     for (std::string& split : splitSpecGlyph)
-        //     {
-        //         if (split.size() != 0)
-        //         {
-        //             parsedSpecGlyph[cls][spec].push_back(atoi(split.c_str()));
-        //         }
-        //     }
-        //     for (uint32 level = 0; level < MAX_LEVEL; ++level)
-        //     {
-        //         std::ostringstream os;
-        //         os << "AiPlayerbot.PremadeSpecLink." << cls << "." << spec << "." << level;
-        //         premadeSpecLink[cls][spec][level] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
-        //         parsedSpecLinkOrder[cls][spec][level] = ParseTempTalentsOrder(cls, premadeSpecLink[cls][spec][level]);
-        //     }
-        // }
-        // for (uint32 spec = 0; spec < 3; ++spec)
-        // {
-        //     for (uint32 points = 0; points < 21; ++points)
-        //     {
-        //         std::ostringstream os;
-        //         os << "AiPlayerbot.PremadeHunterPetLink." << spec << "." << points;
-        //         premadeHunterPetLink[spec][points] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
-        //         parsedHunterPetLinkOrder[spec][points] =
-        //             ParseTempPetTalentsOrder(spec, premadeHunterPetLink[spec][points]);
-        //     }
-        // }
-        // for (uint32 spec = 0; spec < MAX_SPECNO; ++spec)
-        // {
-        //     std::ostringstream os;
-        //     os << "AiPlayerbot.RandomClassSpecProb." << cls << "." << spec;
-        //     uint32 def;
-        //     if (spec <= 1)
-        //         def = 33;
-        //     else if (spec == 2)
-        //         def = 34;
-        //     else
-        //         def = 0;
-        //     randomClassSpecProb[cls][spec] = sConfigMgr->GetOption<uint32>(os.str().c_str(), def, false);
-        //     os.str("");
-        //     os.clear();
-        //     os << "AiPlayerbot.RandomClassSpecIndex." << cls << "." << spec;
-        //     randomClassSpecIndex[cls][spec] = sConfigMgr->GetOption<uint32>(os.str().c_str(), spec, false);
-        // }
-    //}
+    // }
+    //
+    // LOG_DEBUG("PlayerbotsTalentRevampDebug", "===================== PREMADE SPECS AND PROBABILITY =====================");
+
+
+
+    //  for (uint32 cls = 1; cls < MAX_CLASSES; ++cls)
+    //  {
+    //      if (cls == 10)
+    //      {
+    //          continue;
+    //      }
+    //      for (uint32 spec = 0; spec < MAX_SPECNO; ++spec)
+    //      {
+    //          std::ostringstream os;
+    //          os << "AiPlayerbot.PremadeSpecName." << cls << "." << spec;
+    //          premadeSpecName[cls][spec] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
+    //          os.str("");
+    //          os.clear();
+    //          os << "AiPlayerbot.PremadeSpecGlyph." << cls << "." << spec;
+    //          premadeSpecGlyph[cls][spec] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
+    //          std::vector<std::string> splitSpecGlyph = split(premadeSpecGlyph[cls][spec], ',');
+    //          for (std::string& split : splitSpecGlyph)
+    //          {
+    //              if (split.size() != 0)
+    //              {
+    //                  parsedSpecGlyph[cls][spec].push_back(atoi(split.c_str()));
+    //              }
+    //          }
+    //          for (uint32 level = 0; level < MAX_LEVEL; ++level)
+    //          {
+    //              std::ostringstream os;
+    //              os << "AiPlayerbot.PremadeSpecLink." << cls << "." << spec << "." << level;
+    //              premadeSpecLink[cls][spec][level] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
+    //              parsedSpecLinkOrder[cls][spec][level] = ParseTempTalentsOrder(cls, premadeSpecLink[cls][spec][level]);
+    //          }
+    //      }
+    //      for (uint32 spec = 0; spec < 3; ++spec)
+    //      {
+    //          for (uint32 points = 0; points < 21; ++points)
+    //          {
+    //              std::ostringstream os;
+    //              os << "AiPlayerbot.PremadeHunterPetLink." << spec << "." << points;
+    //              premadeHunterPetLink[spec][points] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
+    //              parsedHunterPetLinkOrder[spec][points] =
+    //                  ParseTempPetTalentsOrder(spec, premadeHunterPetLink[spec][points]);
+    //          }
+    //      }
+    //      for (uint32 spec = 0; spec < MAX_SPECNO; ++spec)
+    //      {
+    //          std::ostringstream os;
+    //          os << "AiPlayerbot.RandomClassSpecProb." << cls << "." << spec;
+    //          uint32 def;
+    //          if (spec <= 1)
+    //              def = 33;
+    //          else if (spec == 2)
+    //              def = 34;
+    //          else
+    //              def = 0;
+    //          randomClassSpecProb[cls][spec] = sConfigMgr->GetOption<uint32>(os.str().c_str(), def, false);
+    //          os.str("");
+    //          os.clear();
+    //          os << "AiPlayerbot.RandomClassSpecIndex." << cls << "." << spec;
+    //          randomClassSpecIndex[cls][spec] = sConfigMgr->GetOption<uint32>(os.str().c_str(), spec, false);
+    //      }
+    // }
 
     botCheats.clear();
     LoadListString<std::vector<std::string>>(sConfigMgr->GetOption<std::string>("AiPlayerbot.BotCheats", "food,taxi,raid"),

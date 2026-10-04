@@ -1677,13 +1677,22 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
     // Default to 80 specprobs
     int targetSpecLevel = 80;
 
+    //Choose raid spec.
     if (sPlayerbotAIConfig.progressiveTalentSpecs)
     {
-        //Select .60 bracket
         if (currentLevel <= 60) targetSpecLevel = 60;
-        //Select .70 bracket
         else if (currentLevel <= 70) targetSpecLevel = 70;
-        //Select .80 bracket
+        else targetSpecLevel = 80;
+    }
+
+    //Choose leveling spec or raidspec depending on current level.
+    if (sPlayerbotAIConfig.progressiveLevelingTalentSpecs)
+    {
+        if (currentLevel <= 59) targetSpecLevel = 59;
+        else if (currentLevel == 60) targetSpecLevel = 60;
+        else if (currentLevel >= 61 && currentLevel <= 69) targetSpecLevel = 69;
+        else if (currentLevel == 70) targetSpecLevel = 70;
+        else if (currentLevel >= 71 && currentLevel <= 79) targetSpecLevel = 79;
         else targetSpecLevel = 80;
     }
 
@@ -1723,6 +1732,8 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
             currentP += sPlayerbotAIConfig.randomClassSpecProb[cls][i][targetSpecLevel];
             if (point <= currentP)
             {
+                //TODO Edit/Remove the logmessage below. Remove TALENTREVAMP.
+                LOG_DEBUG("PlayerbotsTalentRevampDebug", "TALENTREVAMP: {} selected spec index {} | Bot level: {} | targetSpecLevel: {} | SpecProbability: {} (Roll: {} out of Total Sum: {})", bot->GetName(), i, bot->GetLevel(), targetSpecLevel,sPlayerbotAIConfig.randomClassSpecProb[cls][i][targetSpecLevel],  point, pointSum);
                 specTab = i;
                 break;
             }
@@ -1756,7 +1767,7 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
     }
 
     bot->SendTalentsInfoData(false);
-    return sPlayerbotAIConfig.randomClassSpecIndex[cls][specTab][targetSpecLevel];
+    return sPlayerbotAIConfig.randomClassSpecIndex[cls][specTab];
 }
 
 void PlayerbotFactory::InitTalentsBySpecNo(Player* bot, int specNo, bool reset)
@@ -3697,7 +3708,7 @@ void PlayerbotFactory::InitTalentsByTemplate(uint32 specTab)
         else targetSpecLevel = 80;
     }
 
-    uint32 specIndex = sPlayerbotAIConfig.randomClassSpecIndex[cls][specTab][targetSpecLevel];
+    uint32 specIndex = sPlayerbotAIConfig.randomClassSpecIndex[cls][specTab];
     uint32 classMask = bot->getClassMask();
     std::unordered_map<uint32, std::vector<TalentEntry const*>> spells_row;
 

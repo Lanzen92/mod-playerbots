@@ -158,6 +158,7 @@ public:
     int32 randomGearScoreLimit;
     bool preferClassArmorType;
     bool preferredSpecWeapons;
+    bool preferExpansionWeaponSpecializations;
     float randomBotMinLevelChance, randomBotMaxLevelChance;
     float randomBotRpgChance;
     uint32 minRandomBots, maxRandomBots;
@@ -283,6 +284,8 @@ public:
     // ClassSpecs classSpecs[MAX_CLASSES];
 
     bool progressiveTalentSpecs;
+    bool progressiveLevelingTalentSpecs;
+
     std::string premadeSpecName[MAX_CLASSES][MAX_SPECNO];
     std::string premadeSpecGlyph[MAX_CLASSES][MAX_SPECNO];
     std::vector<uint32> parsedSpecGlyph[MAX_CLASSES][MAX_SPECNO];
@@ -291,7 +294,7 @@ public:
     std::vector<std::vector<uint32>> parsedSpecLinkOrder[MAX_CLASSES][MAX_SPECNO][MAX_LEVEL];
     std::vector<std::vector<uint32>> parsedHunterPetLinkOrder[3][21];
     uint32 randomClassSpecProb[MAX_CLASSES][MAX_SPECNO][MAX_LEVEL];
-    uint32 randomClassSpecIndex[MAX_CLASSES][MAX_SPECNO][MAX_LEVEL];
+    uint32 randomClassSpecIndex[MAX_CLASSES][MAX_SPECNO];
 
     std::string commandPrefix, commandSeparator;
     std::string randomBotAccountPrefix;
