@@ -47,7 +47,7 @@ void AutoMaintenanceOnLevelupAction::AutoPickTalents()
     bool resetTalents = false;
 
     //Choose .60, .70 and .80 specs.
-    if (sPlayerbotAIConfig.ProgressiveTalentSpecs)
+    if (sPlayerbotAIConfig.BotTalentRespecs)
     {
         if (currentLevel <= 60) targetSpecLevel = 60;
         else if (currentLevel <= 70) targetSpecLevel = 70;
@@ -57,7 +57,7 @@ void AutoMaintenanceOnLevelupAction::AutoPickTalents()
     }
 
     //Choose .59, .60, .69, .70, .79 and .80 specs.
-    if (sPlayerbotAIConfig.ProgressiveLevelingTalentSpecs)
+    if (sPlayerbotAIConfig.BotTalentRespecsExtended)
     {
         if (currentLevel <= 59) targetSpecLevel = 59;
         else if (currentLevel == 60) targetSpecLevel = 60;

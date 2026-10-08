@@ -1714,7 +1714,7 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
 
     int targetSpecLevel = 80; // Default fallback - Will aim for the .80 spec.
     //Choose .60, .70 and .80 specs.
-    if (sPlayerbotAIConfig.ProgressiveTalentSpecs)
+    if (sPlayerbotAIConfig.BotTalentRespecs)
     {
         if (currentLevel <= 60) targetSpecLevel = 60;
         else if (currentLevel <= 70) targetSpecLevel = 70;
@@ -1722,7 +1722,7 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
     }
 
     //Choose .59, .60, .69, .70, .79 and .80 specs.
-    if (sPlayerbotAIConfig.ProgressiveLevelingTalentSpecs)
+    if (sPlayerbotAIConfig.BotTalentRespecsExtended)
     {
         if (currentLevel <= 59) targetSpecLevel = 59;
         else if (currentLevel == 60) targetSpecLevel = 60;
@@ -1743,8 +1743,8 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
             bool isCat = !bot->HasAura(SPELL_DRUID_THICK_HIDE);
             if (!isCat && bot->GetLevel() == 20)
             {
-                uint32 bearP = sPlayerbotAIConfig.randomClassSpecProb[cls][1][targetSpecLevel];
-                uint32 catP = sPlayerbotAIConfig.randomClassSpecProb[cls][3][targetSpecLevel];
+                uint32 bearP = sPlayerbotAIConfig.RandomClassSpecProb[cls][1][targetSpecLevel];
+                uint32 catP = sPlayerbotAIConfig.RandomClassSpecProb[cls][3][targetSpecLevel];
                 if (urand(1, bearP + catP) <= catP)
                     isCat = true;
             }
@@ -1759,14 +1759,14 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
         uint32 pointSum = 0;
         for (int i = 0; i < MAX_SPECNO; i++)
         {
-            pointSum += sPlayerbotAIConfig.randomClassSpecProb[cls][i][targetSpecLevel];
+            pointSum += sPlayerbotAIConfig.RandomClassSpecProb[cls][i][targetSpecLevel];
         }
         uint32 point = urand(1, pointSum);
         uint32 currentP = 0;
         int i;
         for (i = 0; i < MAX_SPECNO; i++)
         {
-            currentP += sPlayerbotAIConfig.randomClassSpecProb[cls][i][targetSpecLevel];
+            currentP += sPlayerbotAIConfig.RandomClassSpecProb[cls][i][targetSpecLevel];
             if (point <= currentP)
             {
                 specTab = i;

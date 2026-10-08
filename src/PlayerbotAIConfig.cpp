@@ -508,7 +508,7 @@ bool PlayerbotAIConfig::Initialize()
              os.clear();
              os << "Playerbots.PremadeSpecGlyph." << cls << "." << spec;
              PremadeSpecGlyph[cls][spec] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
-             std::vector<std::string> splitSpecGlyph = split(premadeSpecGlyph[cls][spec], ',');
+             std::vector<std::string> splitSpecGlyph = split(PremadeSpecGlyph[cls][spec], ',');
              for (std::string& split : splitSpecGlyph)
              {
                  if (split.size() != 0)
@@ -577,7 +577,7 @@ bool PlayerbotAIConfig::Initialize()
                  std::ostringstream os;
                  os << "AiPlayerbot.PremadeHunterPetLink." << spec << "." << points;
                  PremadeHunterPetLink[spec][points] = sConfigMgr->GetOption<std::string>(os.str().c_str(), "", false);
-                 ParsedHunterPetLinkOrder[spec][points] = ParseTempPetTalentsOrder(spec, premadeHunterPetLink[spec][points]);
+                 ParsedHunterPetLinkOrder[spec][points] = ParseTempPetTalentsOrder(spec, PremadeHunterPetLink[spec][points]);
              }
          }
     }
