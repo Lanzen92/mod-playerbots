@@ -560,14 +560,13 @@ bool PlayerbotAIConfig::Initialize()
                  }
                  RandomClassSpecProb[cls][spec][level] = currentProb;
 
-                 osIdx << "Playerbots.RandomClassSpecIndex." << cls << "." << spec << "." << level;
+                 osIdx << "Playerbots.RandomClassSpecIndex." << cls << "." << spec;
                  std::string idxStr = sConfigMgr->GetOption<std::string>(osIdx.str().c_str(), "", false);
                  if (!idxStr.empty())
                  {
                      currentIndex = std::stoul(idxStr);
                  }
                  RandomClassSpecIndex[cls][spec] = currentIndex;
-
              }
          }
 

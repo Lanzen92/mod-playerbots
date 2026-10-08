@@ -689,7 +689,7 @@ void StatsWeightCalculator::CalculateItemTypePenalty(ItemTemplate const* proto)
             weight_ *= 1.5;
         }
 
-        //sword comabat
+        //Sword combat
         if (cls == CLASS_ROGUE && player_->HasAura(SPELL_ROGUE_SWORD_SPECIALIZATION) &&
             (proto->SubClass == ITEM_SUBCLASS_WEAPON_SWORD || proto->SubClass == ITEM_SUBCLASS_WEAPON_AXE))
         {
