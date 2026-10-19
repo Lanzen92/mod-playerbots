@@ -8,7 +8,6 @@
 #include "BroadcastHelper.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
-#include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
 #include "SharedDefines.h"
 #include "SpellMgr.h"
@@ -25,7 +24,7 @@ bool AutoMaintenanceOnLevelupAction::Execute(Event /*event*/)
 
 void AutoMaintenanceOnLevelupAction::AutoTeleportForLevel()
 {
-    if (!sPlayerbotAIConfig.autoTeleportForLevel || !sRandomPlayerbotMgr.IsRandomBot(bot))
+    if (!sPlayerbotAIConfig.AutoTeleportForLevel || !sRandomPlayerbotMgr.IsRandomBot(bot))
         return;
 
     if (botAI->HasGameClientMaster())
@@ -37,74 +36,14 @@ void AutoMaintenanceOnLevelupAction::AutoTeleportForLevel()
 
 void AutoMaintenanceOnLevelupAction::AutoPickTalents()
 {
-    if (!sPlayerbotAIConfig.autoPickTalents)
-        return;
-
-    if (!sRandomPlayerbotMgr.IsRandomBot(bot) && !sRandomPlayerbotMgr.IsAddclassBot(bot))
+    if (!sPlayerbotAIConfig.AutoPickTalents || !sRandomPlayerbotMgr.IsRandomBot(bot))
         return;
 
     if (bot->GetFreeTalentPoints() <= 0)
         return;
 
-    uint32 currentLevel = bot->GetLevel();
-    int targetSpecLevel = 80; // Default fallback
-    bool resetTalents = false;
-
-    //TODO For testing and debugging only. Remove before PR.
-    uint8 prevSpec[3] = {0, 0, 0};
-    bot->GetTalentTreePoints(prevSpec);
-
-    //Choose raid spec
-    if (sPlayerbotAIConfig.progressiveTalentSpecs)
-    {
-        if (currentLevel <= 60) targetSpecLevel = 60;
-        else if (currentLevel <= 70) targetSpecLevel = 70;
-        else targetSpecLevel = 80;
-
-        resetTalents = (currentLevel == 61 || currentLevel == 71);
-    }
-
-    // Choose leveling spec or raidspec (60, 70 and 80) depending on current level.
-    if (sPlayerbotAIConfig.progressiveLevelingTalentSpecs)
-    {
-        if (currentLevel <= 59) targetSpecLevel = 59;
-        else if (currentLevel == 60) targetSpecLevel = 60;
-        else if (currentLevel >= 61 && currentLevel <= 69) targetSpecLevel = 69;
-        else if (currentLevel == 70) targetSpecLevel = 70;
-        else if (currentLevel >= 71 && currentLevel <= 79) targetSpecLevel = 79;
-        else targetSpecLevel = 80;
-
-        resetTalents = (currentLevel == 60 || currentLevel == 61 || currentLevel == 70 || currentLevel == 71 || currentLevel == 80);
-    }
-
-    PlayerbotFactory factory(bot, targetSpecLevel);
-
-    factory.InitTalentsTree(true, true, resetTalents);
-
-    //TODO For testing and debugging only. Remove before PR.
-    uint8 newSpec[3] = {0, 0, 0};
-    bot->GetTalentTreePoints(newSpec);
-
-    if (resetTalents && (currentLevel == 60 || currentLevel == 61 || currentLevel == 70 ||
-        currentLevel == 71 || currentLevel == 80))
-    {
-        LOG_DEBUG("PlayerbotsTalentRevampDebug", "TALENTREVAMP: [AutoMaintenanceOnLevelupAction::AutoPickTalents()] BOT CORRECT FLAGGED FOR RESPECCED AT 60, 61, 70, 71 or 80.");
-        LOG_DEBUG("PlayerbotsTalentRevampDebug", "TALENTREVAMP: Bot name: {} | Bot GUID {} | Leveled: {}", bot->GetName(), bot->GetGUID().GetRawValue(), currentLevel);
-        LOG_DEBUG("PlayerbotsTalentRevampDebug", "TALENTREVAMP: Previous spec: {}-{}-{} | New spec: {}-{}-{}", prevSpec[0], prevSpec[1], prevSpec[2], newSpec[0], newSpec[1], newSpec[2]);
-    }
-    else if (resetTalents)
-    {
-        LOG_ERROR("PlayerbotsTalentRevampDebug", "TALENTREVAMP: [AutoMaintenanceOnLevelupAction::AutoPickTalents()] BOT GOT FLAGGED FOR RESPEC AT WRONG THE LEVEL?");
-        LOG_ERROR("PlayerbotsTalentRevampDebug", "TALENTREVAMP: Bot name: {} | Bot GUID {} | Leveled: {}", bot->GetName(), bot->GetGUID().GetRawValue(), currentLevel);
-        LOG_ERROR("PlayerbotsTalentRevampDebug", "TALENTREVAMP: Previous spec: {}-{}-{} | New spec: {}-{}-{}", prevSpec[0], prevSpec[1], prevSpec[2], newSpec[0], newSpec[1], newSpec[2]);
-    }
-    else
-    {
-        LOG_DEBUG("PlayerbotsTalentRevampDebug", "TALENTREVAMP: [AutoMaintenanceOnLevelupAction::AutoPickTalents()] NORMAL LEVELUP AND POINT SPENDING.");
-        LOG_ERROR("PlayerbotsTalentRevampDebug", "TALENTREVAMP: Bot name: {} | Bot GUID {} | Leveled: {}", bot->GetName(), bot->GetGUID().GetRawValue(), currentLevel);
-        LOG_ERROR("PlayerbotsTalentRevampDebug", "TALENTREVAMP: Previous spec: {}-{}-{} | New spec: {}-{}-{}", prevSpec[0], prevSpec[1], prevSpec[2], newSpec[0], newSpec[1], newSpec[2]);
-    }
-
+    PlayerbotFactory factory(bot, bot->GetLevel());
+    factory.InitTalentsTree(true, true, true);
     factory.InitPetTalents();
 }
 
@@ -129,10 +68,10 @@ void AutoMaintenanceOnLevelupAction::AutoLearnSpell()
 void AutoMaintenanceOnLevelupAction::LearnSpells(std::ostringstream* out)
 {
     BroadcastHelper::BroadcastLevelup(botAI, bot);
-    if (sPlayerbotAIConfig.autoLearnTrainerSpells && sRandomPlayerbotMgr.IsRandomBot(bot))
+    if (sPlayerbotAIConfig.AutoLearnTrainerSpells && sRandomPlayerbotMgr.IsRandomBot(bot))
         LearnTrainerSpells(out);
 
-    if (sPlayerbotAIConfig.autoLearnQuestSpells && sRandomPlayerbotMgr.IsRandomBot(bot))
+    if (sPlayerbotAIConfig.AutoLearnQuestSpells && sRandomPlayerbotMgr.IsRandomBot(bot))
         LearnQuestSpells(out);
 }
 
@@ -234,6 +173,6 @@ void AutoMaintenanceOnLevelupAction::AutoUpgradeEquip()
     factory.InitConsumables();
     factory.InitPotions();
 
-    if (sPlayerbotAIConfig.autoUpgradeEquip)
+    if (sPlayerbotAIConfig.AutoUpgradeEquip)
         factory.InitEquipment(true);
 }
